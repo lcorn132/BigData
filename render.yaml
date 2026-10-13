@@ -29,3 +29,5 @@ services:
         value: "3"
       - key: DEFAULT_FALLBACK_CLUSTER_ID
         value: "1"
+      - key: CORS_ORIGINS
+        value: "*"

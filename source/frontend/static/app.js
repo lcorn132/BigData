@@ -1,4 +1,4 @@
-const API = "";
+const API = (window.RECSYS_API_BASE_URL || "").replace(/\/$/, "");
 const palette = [
   ["#d3b49c", "#b98e74", "#ead4bd"],
   ["#b7b89d", "#707b61", "#d2d1b6"],
