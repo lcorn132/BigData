@@ -1,0 +1,31 @@
+services:
+  - type: keyvalue
+    name: cosmetics-recsys-redis
+    region: singapore
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+
+  - type: web
+    name: cosmetics-recsys-api
+    runtime: docker
+    region: singapore
+    plan: free
+    healthCheckPath: /health
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DATABASE
+        value: recommendation_db
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: cosmetics-recsys-redis
+          property: connectionString
+      - key: CACHE_TTL_SECONDS
+        value: "3600"
+      - key: DB_TIMEOUT_SECONDS
+        value: "3"
+      - key: DEFAULT_FALLBACK_CLUSTER_ID
+        value: "1"
