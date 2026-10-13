@@ -11,6 +11,21 @@ backend. Deployment manifests and container build files live at repository root.
 - `frontend/static/styles.css`: responsive presentation.
 - `frontend/static/app.js`: user interaction and API client.
 
-Run instructions and deployment configuration are in the repository-root
-`README.md`. The backend serves this frontend when `FRONTEND_DIR` points at the
-`source/frontend` directory.
+## Run
+
+From the repository root:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r source/requirements.txt
+cp source/.env.example .env
+# Set MONGODB_URI and REDIS_URL in .env, then:
+set -a && . ./.env && set +a
+uvicorn source.backend.app:app --host 127.0.0.1 --port 8000
+```
+
+The app serves the frontend at `/`, its API at `/api/v1/...`, and OpenAPI docs
+at `/docs`. Keep real credentials in environment variables, not in this source
+package. For MongoDB collection schema and data import, see repository-root
+`README.md`.
