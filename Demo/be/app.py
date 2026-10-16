@@ -54,6 +54,15 @@ COLLECTION_DOCUMENTS = "app_documents"
 class Product(BaseModel):
     product_id: str
     brand: Optional[str] = None
+    display_brand: Optional[str] = None
+    display_name: Optional[str] = None
+    product_type: Optional[str] = None
+    description: Optional[str] = None
+    image_key: Optional[str] = None
+    demo_rating: Optional[float] = None
+    demo_review_count: Optional[int] = None
+    demo_badge: Optional[str] = None
+    enrichment_source: Optional[str] = None
     category_id: Optional[str] = None
     category_code: Optional[str] = None
     price: Optional[float] = None
@@ -123,7 +132,10 @@ class SQLiteStore:
                 rows = db.execute(
                     """
                     SELECT r.rank, r.product_id, r.als_score,
-                           p.brand, p.category_id, p.category_code, p.price
+                           p.brand, p.display_brand, p.display_name, p.product_type,
+                           p.description, p.image_key, p.demo_rating,
+                           p.demo_review_count, p.demo_badge, p.enrichment_source,
+                           p.category_id, p.category_code, p.price
                     FROM recommendations r
                     LEFT JOIN product_catalog p ON p.product_id = r.product_id
                     WHERE r.user_id = ? ORDER BY r.rank ASC LIMIT ?
@@ -140,7 +152,10 @@ class SQLiteStore:
                 rows = db.execute(
                     """
                     SELECT pp.rank, pp.product_id, pp.distinct_users,
-                           p.brand, p.category_id, p.category_code, p.price
+                           p.brand, p.display_brand, p.display_name, p.product_type,
+                           p.description, p.image_key, p.demo_rating,
+                           p.demo_review_count, p.demo_badge, p.enrichment_source,
+                           p.category_id, p.category_code, p.price
                     FROM popular_products pp
                     LEFT JOIN product_catalog p ON p.product_id = pp.product_id
                     ORDER BY pp.rank ASC LIMIT ?
@@ -160,11 +175,11 @@ class SQLiteStore:
             clauses: list[str] = []
             params: list[Any] = []
             if q:
-                clauses.append("(product_id LIKE ? OR COALESCE(brand, '') LIKE ? OR COALESCE(category_code, '') LIKE ?)")
+                clauses.append("(product_id LIKE ? OR COALESCE(display_brand, brand, '') LIKE ? OR COALESCE(display_name, '') LIKE ? OR COALESCE(product_type, '') LIKE ? OR COALESCE(category_code, '') LIKE ?)")
                 needle = f"%{q}%"
-                params.extend([needle, needle, needle])
+                params.extend([needle, needle, needle, needle, needle])
             if brand:
-                clauses.append("brand = ?")
+                clauses.append("COALESCE(display_brand, brand) = ?")
                 params.append(brand)
             if category_id:
                 clauses.append("category_id = ?")
@@ -180,7 +195,10 @@ class SQLiteStore:
                 total = int(db.execute(f"SELECT COUNT(*) FROM product_catalog {where}", params).fetchone()[0])
                 rows = db.execute(
                     f"""
-                    SELECT product_id, brand, category_id, category_code, price
+                    SELECT product_id, brand, display_brand, display_name,
+                           product_type, description, image_key, demo_rating,
+                           demo_review_count, demo_badge, enrichment_source,
+                           category_id, category_code, price
                     FROM product_catalog {where}
                     ORDER BY CAST(product_id AS INTEGER) LIMIT ? OFFSET ?
                     """,
@@ -194,7 +212,11 @@ class SQLiteStore:
         def query() -> Optional[dict[str, Any]]:
             with self._connect() as db:
                 row = db.execute(
-                    "SELECT product_id, brand, category_id, category_code, price FROM product_catalog WHERE product_id = ?",
+                    """SELECT product_id, brand, display_brand, display_name,
+                              product_type, description, image_key, demo_rating,
+                              demo_review_count, demo_badge, enrichment_source,
+                              category_id, category_code, price
+                       FROM product_catalog WHERE product_id = ?""",
                     (product_id,),
                 ).fetchone()
                 return dict(row) if row else None
@@ -205,9 +227,10 @@ class SQLiteStore:
         def query() -> dict[str, list[dict[str, Any]]]:
             with self._connect() as db:
                 brands = db.execute(
-                    """SELECT brand AS value, COUNT(*) AS count FROM product_catalog
-                    WHERE brand IS NOT NULL AND brand <> '' GROUP BY brand
-                    ORDER BY count DESC, brand LIMIT 100"""
+                    """SELECT COALESCE(display_brand, brand) AS value, COUNT(*) AS count
+                    FROM product_catalog WHERE COALESCE(display_brand, brand, '') <> ''
+                    GROUP BY COALESCE(display_brand, brand)
+                    ORDER BY count DESC, value LIMIT 100"""
                 ).fetchall()
                 categories = db.execute(
                     """SELECT category_id AS value, COUNT(*) AS count FROM product_catalog
@@ -225,7 +248,10 @@ class SQLiteStore:
                 rows = db.execute(
                     """
                     SELECT h.product_id, h.view_count, h.cart_count, h.purchase_count,
-                           p.brand, p.category_id, p.category_code, p.price
+                           p.brand, p.display_brand, p.display_name, p.product_type,
+                           p.description, p.image_key, p.demo_rating,
+                           p.demo_review_count, p.demo_badge, p.enrichment_source,
+                           p.category_id, p.category_code, p.price
                     FROM user_history h
                     LEFT JOIN product_catalog p ON p.product_id = h.product_id
                     WHERE h.user_id = ?
@@ -554,10 +580,11 @@ async def demo_users(
 
 @app.get("/api/v1/dashboard")
 async def dashboard(request: Request) -> dict[str, Any]:
-    stats, evaluation, metadata = await asyncio.gather(
+    stats, evaluation, metadata, enrichment = await asyncio.gather(
         request.app.state.store.document("dashboard_stats"),
         request.app.state.store.document("evaluation_report"),
         request.app.state.store.document("metadata"),
+        request.app.state.store.document("catalog_enrichment"),
     )
     hdfs_state: dict[str, Any] = {}
     try:
@@ -575,6 +602,7 @@ async def dashboard(request: Request) -> dict[str, Any]:
         "dashboard_stats": stats or {},
         "evaluation_report": evaluation or {},
         "metadata": metadata or {},
+        "catalog_enrichment": enrichment or {},
         "data_source": data_source,
     }
 

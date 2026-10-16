@@ -7,8 +7,17 @@ HDFS là hệ thống tệp phân tán lưu dữ liệu, không phải cơ sở 
 ## Input, xử lý và output
 
 1. **Input:** gói `serving_export_*.zip` trên HDFS chứa catalog sản phẩm, lịch sử tương tác, Top-K của mô hình `COUNT_C3`, popularity fallback, dashboard và báo cáo đánh giá.
-2. **Xử lý:** `be/prepare_data.py` kiểm tra phiên bản trên HDFS. Khi dữ liệu thay đổi, ứng dụng tải ZIP qua SSH và `be/import_data.py` nạp lại SQLite cache. FastAPI cung cấp API cho catalog, lịch sử, gợi ý và dashboard.
-3. **Output:** website offline hiển thị sản phẩm theo `product_id` gốc, gợi ý ALS cho user đã biết, popularity fallback cho user mới, lịch sử tương tác và số liệu thực nghiệm.
+2. **Xử lý:** `be/prepare_data.py` kiểm tra phiên bản trên HDFS. Khi dữ liệu thay đổi, ứng dụng tải ZIP qua SSH và `be/import_data.py` nạp lại SQLite cache. `be/catalog_enrichment.py` bổ sung lớp nội dung thương mại trình diễn theo `product_id`. FastAPI cung cấp API cho catalog, lịch sử, gợi ý và dashboard.
+3. **Output:** website offline có giao diện cửa hàng, tìm kiếm và lọc sản phẩm, chi tiết sản phẩm, giỏ hàng minh họa, gợi ý ALS cho user đã biết, popularity fallback cho user mới, lịch sử tương tác và Dashboard số liệu thực nghiệm.
+
+## Catalog sản phẩm trình diễn
+
+Dataset cosmetics gốc không có tên đầy đủ, mô tả, ảnh, rating hay số lượt đánh giá. Vì vậy ứng dụng phân biệt hai lớp dữ liệu:
+
+- **Dữ liệu thật:** `product_id`, `brand`, `category_id`, `category_code`, `price`, hành vi user, Top-K và toàn bộ metric đánh giá.
+- **Dữ liệu sinh cho demo:** `display_name`, `display_brand` khi brand gốc bị thiếu, `product_type`, `description`, `image_key`, `demo_rating`, `demo_review_count` và `demo_badge`.
+
+Các trường demo được sinh xác định bằng SHA-256 của `product_id`, nên một sản phẩm luôn nhận cùng nội dung sau mỗi lần chạy. Chúng được lưu với `enrichment_source = generated_for_demo`, không ghi đè thuộc tính gốc và được ghi chú rõ trên giao diện.
 
 ## Cài đặt lần đầu trên Windows
 
@@ -39,7 +48,7 @@ Tệp được lưu mặc định tại `/cosmetics/serving/serving_export.zip` 
 start.bat
 ```
 
-`start.bat` tự kiểm tra HDFS. Nếu export thay đổi, nó đồng bộ và tạo lại `be\data\cosmetics.db`; nếu không thay đổi, nó dùng cache hiện có. Khi HDFS tạm thời không truy cập được, ứng dụng tiếp tục chạy bằng cache gần nhất nếu cache đã tồn tại.
+`start.bat` tự kiểm tra HDFS. Nếu export thay đổi, nó đồng bộ và tạo lại `be\data\cosmetics.db`; nếu không thay đổi, nó dùng cache hiện có. Sau đó script cập nhật catalog trình diễn cho toàn bộ sản phẩm. Khi HDFS tạm thời không truy cập được, ứng dụng tiếp tục chạy bằng cache gần nhất nếu cache đã tồn tại.
 
 Website mở tại <http://127.0.0.1:8000>. API docs ở <http://127.0.0.1:8000/docs>.
 

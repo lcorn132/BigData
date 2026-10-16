@@ -23,6 +23,9 @@ if not exist "data\cosmetics.db" (
   exit /b 1
 )
 
+.venv\Scripts\python.exe catalog_enrichment.py --database data\cosmetics.db
+if errorlevel 1 exit /b 1
+
 set DATA_BACKEND=sqlite
 set DATABASE_PATH=%CD%\data\cosmetics.db
 set FRONTEND_DIR=%CD%\..\fe
