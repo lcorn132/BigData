@@ -2,13 +2,22 @@
 setlocal
 cd /d "%~dp0"
 
+set "PYTHON_CMD="
 where py >nul 2>nul
-if errorlevel 1 (
-  echo Khong tim thay Python Launcher. Hay cai Python 3.10 tro len.
+if not errorlevel 1 set "PYTHON_CMD=py -3"
+
+if not defined PYTHON_CMD (
+  where python >nul 2>nul
+  if not errorlevel 1 set "PYTHON_CMD=python"
+)
+
+if not defined PYTHON_CMD (
+  echo Khong tim thay Python. Hay cai Python 3.10 tro len, sau do mo lai PowerShell.
   exit /b 1
 )
 
-if not exist ".venv\Scripts\python.exe" py -3 -m venv .venv
+if not exist ".venv\Scripts\python.exe" %PYTHON_CMD% -m venv .venv
+if errorlevel 1 exit /b 1
 call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
