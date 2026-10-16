@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <meta name="description" content="Phân tích hành vi và gợi ý sản phẩm mỹ phẩm bằng Spark ALS." />
+    <title>Cosmetics Insight — Spark ALS</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/config.js"></script>
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#view=web"><span>CI</span> Cosmetics Insight</a>
+      <nav class="view-nav" aria-label="Hai giao diện chính">
+        <a class="view-tab active" data-view-target="web" href="#view=web">Web gợi ý</a>
+        <a class="view-tab" data-view-target="dashboard" href="#view=dashboard">Dashboard</a>
+      </nav>
+      <span class="system-state" id="system-state"><i></i> Đang kết nối</span>
+    </header>
+
+    <main>
+      <div class="app-view" id="web-view" data-view="web">
+      <section class="hero" id="home">
+        <div class="hero-copy">
+          <p class="kicker">ĐỒ ÁN BIG DATA · NHÓM 11 · HUIT</p>
+          <h1>Hiểu hành vi.<br /><em>Gợi ý đúng lúc.</em></h1>
+          <p class="lead">Hệ thống phân tích hơn 19 triệu sự kiện mỹ phẩm và phục vụ Top-10 gợi ý từ mô hình implicit ALS đã kiểm định.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#recommendations">Xem gợi ý</a>
+            <a class="button ghost" href="#view=dashboard">Xem Dashboard</a>
+          </div>
+          <p class="run-note">COUNT_C3 · Spark 4.0.4 · RUN_ID 20261015_055252_249418</p>
+        </div>
+        <div class="hero-visual" aria-label="Minh họa quy trình dữ liệu">
+          <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+          <div class="data-node node-user"><strong>273K</strong><span>users</span></div>
+          <div class="data-node node-model"><strong>ALS</strong><span>rank 64</span></div>
+          <div class="data-node node-item"><strong>41K</strong><span>items</span></div>
+        </div>
+      </section>
+
+      <section class="stat-strip" aria-label="Quy mô hệ thống">
+        <div><strong>19.583.742</strong><span>sự kiện hợp lệ</span></div>
+        <div><strong>5.042.095</strong><span>cặp Train sau K-Core</span></div>
+        <div><strong>273.018</strong><span>người dùng Train</span></div>
+        <div><strong>41.092</strong><span>sản phẩm Train</span></div>
+      </section>
+
+      <section class="section" id="products">
+        <div class="section-title">
+          <div><p class="kicker">CATALOG DỮ LIỆU THẬT</p><h2>Khám phá sản phẩm</h2></div>
+          <p>Tên và ảnh không có trong dataset. Thông tin hiển thị dùng ID, thương hiệu, danh mục và giá quan sát tại sự kiện gần nhất trong Train.</p>
+        </div>
+        <form class="filter-bar" id="product-filters">
+          <label><span>Tìm kiếm</span><input id="product-search" placeholder="Product ID, thương hiệu, category..." /></label>
+          <label><span>Thương hiệu</span><select id="brand-filter"><option value="">Tất cả</option></select></label>
+          <label><span>Giá từ</span><input id="price-min" type="number" min="0" step="0.01" placeholder="0" /></label>
+          <label><span>Đến</span><input id="price-max" type="number" min="0" step="0.01" placeholder="500" /></label>
+          <button class="button primary" type="submit">Lọc</button>
+        </form>
+        <div class="result-line"><span id="product-count">Đang tải catalog…</span><span id="product-page-label"></span></div>
+        <div class="product-grid" id="product-grid"></div>
+        <div class="empty hidden" id="product-empty">Không tìm thấy sản phẩm phù hợp.</div>
+        <div class="pagination">
+          <button id="previous-products" class="button ghost" type="button">← Trang trước</button>
+          <button id="next-products" class="button ghost" type="button">Trang sau →</button>
+        </div>
+      </section>
+
+      <section class="section recommendation-section" id="recommendations">
+        <div class="section-title">
+          <div><p class="kicker">IMPLICIT COLLABORATIVE FILTERING</p><h2>Gợi ý cho người dùng</h2></div>
+          <p>Chọn một user mẫu hoặc nhập ID gốc. User đã biết nhận Top-10 từ COUNT_C3; user mới nhận Popularity fallback.</p>
+        </div>
+        <div class="user-picker">
+          <label><span>User ID</span><input id="user-id" inputmode="numeric" placeholder="Chọn user mẫu…" list="demo-user-list" /></label>
+          <datalist id="demo-user-list"></datalist>
+          <button class="button primary" id="load-user" type="button">Phân tích user</button>
+          <span class="strategy-badge" id="strategy-badge">Chưa tải</span>
+        </div>
+        <div class="recommendation-layout">
+          <div>
+            <div class="subhead"><h3>Top-10 đề xuất</h3><span>ALS score là điểm xếp hạng, không phải xác suất mua</span></div>
+            <div class="product-grid compact" id="recommendation-grid"></div>
+            <div class="empty hidden" id="recommendation-empty">Chưa có dữ liệu gợi ý.</div>
+          </div>
+          <aside class="history-panel">
+            <div class="subhead"><h3>Lịch sử tương tác</h3><span id="history-total">0 sản phẩm</span></div>
+            <div id="history-list" class="history-list"></div>
+            <div class="empty hidden" id="history-empty">User mới chưa có lịch sử Train.</div>
+          </aside>
+        </div>
+      </section>
+
+      </div>
+
+      <div class="app-view" id="dashboard-view" data-view="dashboard" hidden>
+      <section class="dashboard-hero">
+        <div>
+          <p class="kicker">PHÂN TÍCH & KIỂM ĐỊNH MÔ HÌNH</p>
+          <h1>Dashboard dữ liệu</h1>
+          <p>Theo dõi quy mô dữ liệu, hành vi người dùng, coverage và kết quả COUNT_C3 trên tập Validation và Test.</p>
+          <span class="source-badge" id="data-source-status">Đang kiểm tra nguồn dữ liệu…</span>
+        </div>
+        <a class="button dashboard-back" href="#view=web">← Về Web gợi ý</a>
+      </section>
+
+      <section class="section dashboard-section" id="dashboard">
+        <div class="section-title light">
+          <div><p class="kicker">KẾT QUẢ THỰC NGHIỆM ĐÃ CHỐT</p><h2>Dashboard mô hình</h2></div>
+          <p>Số liệu đánh giá warm-start, chia theo thời gian và dùng mapping Train thống nhất.</p>
+        </div>
+        <div class="metric-grid" id="metric-grid">
+          <article><span>Test Recall@10</span><strong>5,0218%</strong><small>COUNT_C3</small></article>
+          <article><span>Test Precision@10</span><strong>3,5389%</strong><small>COUNT_C3</small></article>
+          <article><span>Validation coverage</span><strong>50,8720%</strong><small>130.278 cặp warm-start</small></article>
+          <article><span>Test coverage</span><strong>39,7254%</strong><small>93.669 cặp warm-start</small></article>
+        </div>
+        <div class="dashboard-grid">
+          <article class="chart-card"><div class="subhead"><h3>So sánh trên Test</h3><span>Macro metrics</span></div><div id="model-chart" class="bar-chart"></div></article>
+          <article class="chart-card"><div class="subhead"><h3>Hành vi trong 5 tháng</h3><span>view · cart · purchase · remove</span></div><div id="event-chart" class="bar-chart"></div></article>
+        </div>
+        <p class="coverage-note">Coverage thấp cho thấy metric chỉ mô tả nhóm user và item đã có trong Train. Kết quả không được diễn giải là chất lượng trên toàn bộ người mua.</p>
+      </section>
+
+      <section class="section" id="method">
+        <div class="section-title"><div><p class="kicker">QUY TRÌNH CÓ THỂ TÁI LẬP</p><h2>Phương pháp</h2></div></div>
+        <div class="pipeline">
+          <article><b>01</b><h3>Chia theo thời gian</h3><p>Train 10–12/2019, Validation 01/2020 và Test 02/2020 theo UTC.</p></article>
+          <article><b>02</b><h3>Lọc K-Core</h3><p>Item có ít nhất 5 users, user có ít nhất 3 items; hội tụ ở vòng 4.</p></article>
+          <article><b>03</b><h3>Mapping thống nhất</h3><p>ID gốc dạng bigint được ánh xạ sang index int32 từ Train và tái sử dụng.</p></article>
+          <article><b>04</b><h3>Implicit ALS</h3><p>COUNT_C3: rank 64, regParam 0,1, alpha 10, maxIter 10.</p></article>
+          <article><b>05</b><h3>Đánh giá Top-K</h3><p>Macro Precision/Recall@5,@10 và popularity baseline trên cùng ground truth.</p></article>
+        </div>
+      </section>
+      </div>
+    </main>
+
+    <footer><strong>Cosmetics Insight</strong><span>Local app · HDFS source · SQLite serving cache</span><a href="/docs">API docs</a></footer>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
